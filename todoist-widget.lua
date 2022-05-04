@@ -19,6 +19,7 @@ local project_name = ""
 local tasks = {}
 local res = {}
 local get_counter = 0
+local selected_task = nil
 
 function on_resume()
 
@@ -111,6 +112,30 @@ function render_lines()
         title = project_name
     end
     ui:show_lines({ "<b>" .. title .. "</b>", table.unpack(lines) })
+end
+
+function on_long_click(idx)
+    if idx == 1 then return end
+    selected_task = idx - 1
+    ui:show_context_menu({ { "check", "Done" }, { "trash", "Delete" } })
+end
+
+function on_context_menu_click(idx)
+    if idx == 1 then
+        http:post(base_uri .. "tasks/" .. tasks[selected_task]["id"] .. "/close", "", "application/json", "task_done")
+    end
+    if idx == 2 then
+        http:delete(base_uri .. "tasks/" .. tasks[selected_task]["id"], "task_done")
+
+    end
+end
+
+function on_network_result_task_done(string, code)
+    if code == 204 then
+        http:get(base_uri .. "tasks?project_id=" .. project_id, "tasks")
+        return
+    end
+    ui:show_toast("There was an error marking the task as done!")
 end
 
 function on_click(idx)
