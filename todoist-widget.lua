@@ -17,7 +17,9 @@ local project = {}
 local project_id = ""
 local project_name = ""
 local tasks = {}
-local res = {}
+local sections = {}
+local project_names = {}
+local api_projects = {}
 local get_counter = 0
 local selected_task = nil
 
@@ -52,11 +54,24 @@ function main()
         project_id = ""
     end
 
+    http:get(base_uri .. "sections/?project_id=" .. project_id, "sections")
+end
+
+function on_network_result_sections(string, code)
+    sections = {}
+    local res = json.decode(string)
+    for i,v in ipairs(res) do
+        sections[v.id] = v
+    end
     http:get(base_uri .. "tasks?project_id=" .. project_id, "tasks")
 end
 
 function on_network_result_tasks(string, code)
     tasks = json.decode(string)
+
+    if #tasks == 0 then
+        render_lines()
+    end
 
     for i, v in ipairs(tasks) do
         get_counter = get_counter + 1
@@ -82,8 +97,18 @@ end
 function render_lines()
     local lines = {}
 
+    if #tasks == 0 then
+        lines[1] = "<font color=\"grey\"><i> - All done!</i></font>"
+    end
+
+    local section_lines = {}
+
+    for id, v in pairs(sections) do
+        section_lines[v["order"]] = {"%%mkd%%" ..  "### *" .. v["name"] .. "*" }
+    end
+
     for i, v in ipairs(tasks) do
-        local tab = "&nbsp&nbsp&nbsp&nbsp"
+        local tab = "&nbsp;&nbsp;&nbsp;&nbsp;"
 
         if not v["parent_id"] then
             tab = ""
@@ -100,9 +125,20 @@ function render_lines()
         elseif v["priority"] == 3 then background = "#eb8909"
         elseif v["priority"] == 4 then background = "#d1453b" end
 
-        lines[i] = tab .. "● " .. "<span style=\"background-color: " .. background .. "\">" .. v["content"] .. "</span>" .. due
+        --lines[i] = v["section_id"]
+        local line =  tab .. "●" .. "<span style=\"background-color: " .. background .. "\">" .. v["content"] .. "</span>" .. due
+        if v["section_id"] > 0 then
+            table.insert(section_lines[sections[v["section_id"]]["order"]],"%%mkd%%" .. "&nbsp;&nbsp;" .. line)
+        else 
+            lines[i] = "%%mkd%%" .. line
+        end 
     end
-    -- table.insert(lines, "<span style=\"background-color: #00FF00; width: 100%\" text-align=\"right \">test</font>")
+
+    for i, t in ipairs(section_lines) do
+        for j, v in ipairs(t) do
+            table.insert(lines, v)
+        end
+    end
 
     local title = ""
 
@@ -147,15 +183,15 @@ function on_click(idx)
 end
 
 function on_network_result_projects(string, code)
-    res = json.decode(string)
+    api_projects = json.decode(string)
 
-    projects = { "All Projects" }
+    project_names = { "All Projects" }
 
-    for i, v in ipairs(res) do
-        projects[i + 1] = v["name"]
+    for i, v in ipairs(api_projects) do
+        project_names[i + 1] = v["name"]
     end
 
-    ui:show_radio_dialog("Select Project", projects)
+    ui:show_radio_dialog("Select Project", project_names)
 end
 
 function on_dialog_action(idx)
@@ -165,13 +201,13 @@ function on_dialog_action(idx)
     if idx == 1 then
         project_id = ""
     else
-        project_id = res[idx - 1]["id"]
+        project_id = api_projects[idx - 1]["id"]
     end
-    project_name = projects[idx]
+    project_name = project_names[idx]
 
 
     files:write("project", project_id)
-    files:write("project_name", projects[idx])
+    files:write("project_name", project_names[idx])
 
     main()
 end
