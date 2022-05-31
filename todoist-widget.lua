@@ -298,6 +298,10 @@ function open_context_menu(id)
             return
         end
     end
+
+    ui:show_context_menu{
+        { "repeat", "Refresh" }
+    }
 end
 
 function on_context_menu_click(idx)
@@ -311,6 +315,8 @@ function on_context_menu_click(idx)
         api_delete_section(task)
     elseif dialog_id == "project" then
         api_delete_project(task)
+    else
+        on_alarm()
     end
 end
 
