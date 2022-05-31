@@ -467,11 +467,18 @@ end
 function task_date(v)
     local due_date = get_time(v.due)
 
-    if due_date ~= nil then
-        return colored(" - "..os.date("%d %b, %H:%M", due_date), grey)
+    if due_date == nil then
+        return ""
     end
 
-    return ""
+    local date = ""
+    if os.date("%H:%M", due_date) == "00:00" then
+        date = os.date("%d %b", due_date)
+    else
+        date = os.date("%d %b, %H:%M", due_date)
+    end
+
+    return colored(" - "..date, grey)
 end
 
 -- Dot in the beggining of task
