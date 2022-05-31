@@ -1,6 +1,6 @@
 Todoist widget for [AIO Launcher](https://aiolauncher.app).
 
-Supported features:
+### Supported features:
 
 * Creating, deleting and editing tasks
 * Changing the time and priority of tasks
@@ -8,7 +8,7 @@ Supported features:
 * Subtasks support
 * Markdown support
 
-## TODO
+### TODO
 
 * Creating and editing projects
 * Better implementation of folded mode
