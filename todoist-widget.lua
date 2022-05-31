@@ -141,17 +141,17 @@ end
 function redraw()
     local lines = {}
     local line = ""
-    lines_id = {}
     local project = tonumber(settings:get()[2])
+    lines_id = {}
 
     if project == 0 then
-        line = line.."All projects"
+        line = bold("All projects")
     else
-        line = line..get_project_name(project)
+        line = bold(get_project_name(project))
     end
 
     if os.time() - files:read("todoist_time") > decay_time then
-        line = "<b>"..line.."</b>".." (outdated)"
+        line = line.." (outdated)"
     end
 
     table.insert(lines, line)
@@ -449,6 +449,11 @@ end
 -- HTML-colored string
 function colored(str, color)
     return "<font color=\""..color.."\">"..str.."</font>"
+end
+
+-- HTML bold string
+function bold(str)
+    return "<b>"..str.."</b>"
 end
 
 function task_text(v)
