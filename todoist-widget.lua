@@ -307,9 +307,9 @@ end
 function on_context_menu_click(idx)
     if dialog_id == "task" then
         if idx == 1 then
-            api_close_task()
+            api_close_task(task)
         elseif idx == 2 then
-            api_delete_task()
+            api_delete_task(task)
         end
     elseif dialog_id == "section" then
         api_delete_section(task)
@@ -547,38 +547,38 @@ function api_set_token(token)
 end
 
 function api_get_projects()
-    http:get(base_uri .. "projects", "projects")
+    http:get(base_uri.."projects", "projects")
 end
 
 function api_get_sections()
-    http:get(base_uri .. "sections", "sections")
+    http:get(base_uri.."sections", "sections")
 end
 
 function api_get_tasks()
-    http:get(base_uri .. "tasks", "tasks")
+    http:get(base_uri.."tasks", "tasks")
 end
 
 function api_create_task(body)
-    http:post(base_uri .. "tasks/", body, "application/json", "create")
+    http:post(base_uri.."tasks/", body, "application/json", "create")
 end
 
-function api_delete_task(task)
-    http:delete(base_uri.."tasks/"..task, "delete")
+function api_delete_task(task_id)
+    http:delete(base_uri.."tasks/"..task_id, "delete")
 end
 
-function api_edit_task(task, body)
-    http:post(base_uri.."tasks/"..task, body, "application/json", "task")
+function api_edit_task(task_id, body)
+    http:post(base_uri.."tasks/"..task_id, body, "application/json", "task")
 end
 
-function api_close_task(task)
-    http:post(base_uri .. "tasks/" .. task .. "/close", "", "application/json", "close")
+function api_close_task(task_id)
+    http:post(base_uri.."tasks/"..task_id.."/close", "", "application/json", "close")
 end
 
-function api_delete_section(task)
-    http:delete(base_uri .. "sections/" .. task, "delete_sec")
+function api_delete_section(task_id)
+    http:delete(base_uri.."sections/"..task_id, "delete_sec")
 end
 
-function api_delete_project(task)
-    http:delete(base_uri .. "projects/" .. task, "delete_pr")
+function api_delete_project(task_id)
+    http:delete(base_uri.."projects/"..task_id, "delete_pr")
 end
 
