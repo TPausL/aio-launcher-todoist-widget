@@ -29,67 +29,67 @@ local lines_id = {}
 local task = 0
 
 function on_alarm()
-	local args = settings:get()
+    local args = settings:get()
 
     if not settings:get() then
-		settings:set({0, 0})
-	end
+        settings:set({0, 0})
+    end
 
-	local token = settings:get()[1]
+    local token = settings:get()[1]
     if tonumber(token) == 0 then
         ui:show_text("Tap to enter your API token!")
         return
-	end
+    end
 
     api_set_token(token)
     api_get_projects()
 end
 
 function on_network_result_projects(res)
-	files:write("todoist_projects", res)
+    files:write("todoist_projects", res)
     api_get_sections()
 end
 
 function on_network_result_sections(res)
-	files:write("todoist_sections", res)
+    files:write("todoist_sections", res)
     api_get_tasks()
 end
 
 function on_network_result_tasks(res, err)
-	files:write("todoist_tasks", res)
-	files:write("todoist_time", os.time())
-	on_resume()
+    files:write("todoist_tasks", res)
+    files:write("todoist_time", os.time())
+    on_resume()
 end
 
 function on_resume()
-	if not files:read("todoist_projects") then
-		files:write("todoist_projects", json.encode({}))
-	end
-	if not files:read("todoist_sections") then
-		files:write("todoist_sections", json.encode({}))
-	end
-	if not files:read("todoist_tasks") then
-		files:write("todoist_tasks", json.encode({}))
-	end
+    if not files:read("todoist_projects") then
+        files:write("todoist_projects", json.encode({}))
+    end
+    if not files:read("todoist_sections") then
+        files:write("todoist_sections", json.encode({}))
+    end
+    if not files:read("todoist_tasks") then
+        files:write("todoist_tasks", json.encode({}))
+    end
 
     projects = json.decode(files:read("todoist_projects"))
-	sections = json.decode(files:read("todoist_sections"))
-	tasks = json.decode(files:read("todoist_tasks"))
+    sections = json.decode(files:read("todoist_sections"))
+    tasks = json.decode(files:read("todoist_tasks"))
 
     redraw()
 end
 
 function on_click(idx)
-	if tonumber(settings:get()[1]) == 0 then
-		dialog_id = "settings"
-		ui:show_edit_dialog("Enter your API token")
-	elseif idx == 1 then
+    if tonumber(settings:get()[1]) == 0 then
+        dialog_id = "settings"
+        ui:show_edit_dialog("Enter your API token")
+    elseif idx == 1 then
         select_project()
-	elseif idx == #lines_id then
+    elseif idx == #lines_id then
         create_task()
-	else
-		open_task(lines_id[idx])
-	end
+    else
+        open_task(lines_id[idx])
+    end
 end
 
 function select_project()
@@ -127,8 +127,8 @@ function get_project_idx()
 end
 
 function on_settings()
-	dialog_id = "settings"
-	ui:show_edit_dialog("Enter your API token", "", settings:get()[1])
+    dialog_id = "settings"
+    ui:show_edit_dialog("Enter your API token", "", settings:get()[1])
 end
 
 function on_dialog_settings(res)
@@ -140,27 +140,27 @@ end
 
 function redraw()
     local lines = {}
-	local line = ""
-	lines_id = {}
+    local line = ""
+    lines_id = {}
     local project = tonumber(settings:get()[2])
 
     if project == 0 then
-		line = line.."All projects"
+        line = line.."All projects"
     else
-		line = line..get_project_name(project)
+        line = line..get_project_name(project)
     end
 
     if os.time() - files:read("todoist_time") > decay_time then
-	    line = "<b>"..line.."</b>".." (outdated)"
-	end
+        line = "<b>"..line.."</b>".." (outdated)"
+    end
 
     table.insert(lines, line)
-	table.insert(lines_id, project)
+    table.insert(lines_id, project)
 
     lines = insert_tasks(lines, project, 0)
 
     for i,v in ipairs(sections) do
-		lines = insert_tasks(lines, project, v.id)
+        lines = insert_tasks(lines, project, v.id)
     end
 
     table.insert(lines, colored("Add task", grey))
@@ -180,65 +180,65 @@ function get_project_name()
 end
 
 function get_section_name(id)
-	for i,v in ipairs(sections) do
-		if v.id == id then
-			return v.name
-		end
-	end
+    for i,v in ipairs(sections) do
+        if v.id == id then
+            return v.name
+        end
+    end
 end
 
 function insert_tasks(tab, pr, sec)
-	local is_sec = true
+    local is_sec = true
 
-	for i,v in ipairs(tasks) do
-		if ((pr == v.project_id) or (pr == 0)) and (sec == v.section_id) and (not v.parent) and not v.completed then
-			if is_sec and sec ~= 0 then
-				table.insert(tab, "<b><i>" .. get_section_name(sec) .. "</i></b>")
-				table.insert(lines_id, sec)
-				is_sec = false
-			end
+    for i,v in ipairs(tasks) do
+        if ((pr == v.project_id) or (pr == 0)) and (sec == v.section_id) and (not v.parent) and not v.completed then
+            if is_sec and sec ~= 0 then
+                table.insert(tab, "<b><i>" .. get_section_name(sec) .. "</i></b>")
+                table.insert(lines_id, sec)
+                is_sec = false
+            end
 
-			local line = task_text(v)..task_date(v)
+            local line = task_text(v)..task_date(v)
 
             table.insert(tab, line)
-			table.insert(lines_id, v.id)
+            table.insert(lines_id, v.id)
 
-			tab = insert_subtasks(tab, v.id, 1)
-		end
-	end
-	return tab
+            tab = insert_subtasks(tab, v.id, 1)
+        end
+    end
+    return tab
 end
 
 function insert_subtasks(tab, id, lev)
     local curr_time = os.time()
 
-	for i,v in ipairs(tasks) do
-		if (v.parent_id == id) and not v.completed then
-			local line = task_text(v)..task_date()
+    for i,v in ipairs(tasks) do
+        if (v.parent_id == id) and not v.completed then
+            local line = task_text(v)..task_date()
 
             for i = 1, lev do
-				line = "&nbsp;&nbsp;&nbsp;"..line
-			end
+                line = "&nbsp;&nbsp;&nbsp;"..line
+            end
 
-			table.insert(tab, line)
-			table.insert(lines_id, v.id)
+            table.insert(tab, line)
+            table.insert(lines_id, v.id)
 
-			tab = insert_subtasks(tab, v.id, lev + 1)
-		end
-	end
-	return tab
+            tab = insert_subtasks(tab, v.id, lev + 1)
+        end
+    end
+    return tab
 end
 
 function open_task(id)
-	for i,v in ipairs(tasks) do
-		if v.id == id then
-			dialog_id = "task"
-			task = v.id
+    for i,v in ipairs(tasks) do
+        if v.id == id then
+            dialog_id = "task"
+            task = v.id
 
             local color = 6
-			if v.priority > 1 then
-			    color = 5 - v.priority
-			end
+            if v.priority > 1 then
+                color = 5 - v.priority
+            end
 
             ui:show_rich_editor{
                 text = v.content.."\n"..v.description,
@@ -249,8 +249,8 @@ function open_task(id)
             }
 
             return
-		end
-	end
+        end
+    end
 end
 
 function on_dialog_task(res)
@@ -263,76 +263,76 @@ function on_dialog_task(res)
 end
 
 function on_long_click(idx)
-	open_context_menu(lines_id[idx])
+    open_context_menu(lines_id[idx])
 end
 
 function open_context_menu(id)
-	for i,v in ipairs(tasks) do
-		if v.id == id then
-			dialog_id = "task"
-			task = v.id
-			ui:show_context_menu{
+    for i,v in ipairs(tasks) do
+        if v.id == id then
+            dialog_id = "task"
+            task = v.id
+            ui:show_context_menu{
                 { "check", "Done" },
                 { "trash", "Delete" }
             }
-			return
-		end
-	end
-	for i,v in ipairs(sections) do
-		if v.id == id then
-			dialog_id = "section"
-			task = v.id
-			ui:show_context_menu{
+            return
+        end
+    end
+    for i,v in ipairs(sections) do
+        if v.id == id then
+            dialog_id = "section"
+            task = v.id
+            ui:show_context_menu{
                 { "trash", "Delete" }
             }
-			return
-		end
-	end
-	for i,v in ipairs(projects) do
-		if (v.id == id) and (get_project_name(id) ~= "Inbox") then
-			dialog_id = "project"
-			task = v.id
-			ui:show_context_menu{
+            return
+        end
+    end
+    for i,v in ipairs(projects) do
+        if (v.id == id) and (get_project_name(id) ~= "Inbox") then
+            dialog_id = "project"
+            task = v.id
+            ui:show_context_menu{
                 { "trash", "Delete" }
             }
-			return
-		end
-	end
+            return
+        end
+    end
 end
 
 function on_context_menu_click(idx)
-	if dialog_id == "task" then
-		if idx == 1 then
+    if dialog_id == "task" then
+        if idx == 1 then
             api_close_task()
-		elseif idx == 2 then
+        elseif idx == 2 then
             api_delete_task()
-		end
-	elseif dialog_id == "section" then
+        end
+    elseif dialog_id == "section" then
         api_delete_section(task)
-	elseif dialog_id == "project" then
+    elseif dialog_id == "project" then
         api_delete_project(task)
-	end
+    end
 end
 
 function on_dialog_action(res)
-	if res == -1 and dialog_id ~= "task" then
-		return
-	end
+    if res == -1 and dialog_id ~= "task" then
+        return
+    end
 
     if dialog_id == "settings" then
         on_dialog_settings(res)
-	elseif dialog_id == "projects" then
+    elseif dialog_id == "projects" then
         on_dialog_projects(res)
-	elseif dialog_id == "task" then
+    elseif dialog_id == "task" then
         on_dialog_task(res)
-	elseif dialog_id == "create" then
+    elseif dialog_id == "create" then
         on_dialog_create(res)
     end
 end
 
 function on_network_result_close(res, err)
     if err == 204 then
-		ui:show_toast("Task closed!")
+        ui:show_toast("Task closed!")
         on_alarm()
         return
     end
@@ -342,7 +342,7 @@ end
 
 function on_network_result_delete(res, err)
     if err == 204 then
-		ui:show_toast("Task deleted!")
+        ui:show_toast("Task deleted!")
         on_alarm()
         return
     end
@@ -352,7 +352,7 @@ end
 
 function on_network_result_delete_sec(res, err)
     if err == 204 then
-		ui:show_toast("Section deleted!")
+        ui:show_toast("Section deleted!")
         on_alarm()
         return
     end
@@ -362,10 +362,10 @@ end
 
 function on_network_result_delete_pr(res, err)
     if err == 204 then
-		ui:show_toast("Project deleted!")
-		local args = settings:get()
-		args[2] = 0
-		settings:set(args)
+        ui:show_toast("Project deleted!")
+        local args = settings:get()
+        args[2] = 0
+        settings:set(args)
         on_alarm()
         return
     end
@@ -391,7 +391,7 @@ end
 
 function on_network_result_create(res, err)
     if err == 200 then
-		ui:show_toast("Task created!")
+        ui:show_toast("Task created!")
         on_alarm()
         return
     end
@@ -401,7 +401,7 @@ end
 
 function on_network_result_task(res, err)
     if err == 204 then
-		ui:show_toast("Task updated!")
+        ui:show_toast("Task updated!")
         on_alarm()
         return
     end
@@ -452,18 +452,18 @@ function colored(str, color)
 end
 
 function task_text(v)
-	local due_date = get_time(v.due)
+    local due_date = get_time(v.due)
     local dot = dot(due_date)
     local color = color_by_priority(v.priority)
 
-	return "%%mkd%%"..colored(dot.." "..v.content, color)
+    return "%%mkd%%"..colored(dot.." "..v.content, color)
 end
 
 function task_date(v)
-	local due_date = get_time(v.due)
+    local due_date = get_time(v.due)
 
     if due_date ~= nil then
-	    return colored(" - "..os.date("%d %b, %H:%M", due_date), grey)
+        return colored(" - "..os.date("%d %b, %H:%M", due_date), grey)
     end
 
     return ""
@@ -491,23 +491,23 @@ function color_by_priority(priority)
 end
 
 function get_time(due)
-	local due_date = nil
-	local due_time = nil
-	local offset = 0
+    local due_date = nil
+    local due_time = nil
+    local offset = 0
 
     if due ~= nil then
-		if due.datetime ~= nil then
-		    due_time = due.datetime:split("T")
-			due_time = due_time[2]:split(":")
-			offset = system:get_tz_offset()
-		else
-			due_time = {0, 0}
-		end
-		due_date = due.date:split("-")
-	end
+        if due.datetime ~= nil then
+            due_time = due.datetime:split("T")
+            due_time = due_time[2]:split(":")
+            offset = system:get_tz_offset()
+        else
+            due_time = {0, 0}
+        end
+        due_date = due.date:split("-")
+    end
 
     if due_date ~= nil then
-		due_date = os.time{
+        due_date = os.time{
             year = due_date[1],
             month = due_date[2],
             day = due_date[3],
@@ -515,7 +515,7 @@ function get_time(due)
             min = due_time[2],
             sec = 0
         } + offset
-	end
+    end
 
     return due_date
 end
@@ -525,19 +525,19 @@ end
 local base_uri = "https://api.todoist.com/rest/v1/"
 
 function api_set_token(token)
-	http:set_headers{ "Authorization: Bearer "..token }
+    http:set_headers{ "Authorization: Bearer "..token }
 end
 
 function api_get_projects()
-	http:get(base_uri .. "projects", "projects")
+    http:get(base_uri .. "projects", "projects")
 end
 
 function api_get_sections()
-	http:get(base_uri .. "sections", "sections")
+    http:get(base_uri .. "sections", "sections")
 end
 
 function api_get_tasks()
-	http:get(base_uri .. "tasks", "tasks")
+    http:get(base_uri .. "tasks", "tasks")
 end
 
 function api_create_task(body)
@@ -553,7 +553,7 @@ function api_edit_task(task, body)
 end
 
 function api_close_task(task)
-	http:post(base_uri .. "tasks/" .. task .. "/close", "", "application/json", "close")
+    http:post(base_uri .. "tasks/" .. task .. "/close", "", "application/json", "close")
 end
 
 function api_delete_section(task)
