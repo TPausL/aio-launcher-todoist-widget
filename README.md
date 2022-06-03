@@ -10,6 +10,7 @@ Todoist widget for [AIO Launcher](https://aiolauncher.app).
 
 ### TODO
 
+* Menu for to add hour, day or month to task due date (like native AIO's tasks widget)
 * Creating and editing projects
 * Correct error handling when updating task list
 * Using local cache for creating and editing tasks (so that you do not have to wait for change to be sent to server)
