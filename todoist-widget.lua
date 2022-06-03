@@ -3,6 +3,7 @@
 -- description = "Integration with Todoist"
 -- data_source = "https://todoist.com/app/"
 -- author = "Timo Peters & Andrey Gavrilov"
+-- aio_version = "4.4.1"
 -- version = "2.1
 -- arguments_default = "0 0"
 
@@ -11,6 +12,9 @@ local json = require "json"
 local md_colors = require "md_colors"
 
 -- constants
+local exclamation = "❗"
+local today_meta = "<!--meta:today-->"
+local overdue_meta = "<!--meta:overdue-->"
 local decay_time = 6 * 60 * 60
 local white = ui:get_colors().primary_text
 local grey = ui:get_colors().secondary_text
@@ -139,34 +143,71 @@ function on_dialog_settings(res)
 end
 
 function redraw()
+    local project_name = ""
+    local first_line = ""
     local lines = {}
-    local line = ""
-    local project = tonumber(settings:get()[2])
+    local tasks = {}
     lines_id = {}
 
-    if project == 0 then
-        line = bold("All projects")
+    local project_id = tonumber(settings:get()[2])
+
+    if project_id == 0 then
+        project_name = bold("All projects")
     else
-        line = bold(get_project_name(project))
+        project_name = bold(get_project_name(project))
     end
 
     if os.time() - files:read("todoist_time") > decay_time then
-        line = line.." (outdated)"
+        first_line = project_name.." (outdated)"
+    else
+        first_line = project_name
     end
 
-    table.insert(lines, line)
-    table.insert(lines_id, project)
+    table.insert(lines_id, project_id)
 
-    lines = insert_tasks(lines, project, 0)
+    tasks = insert_tasks(tasks, project_id, 0)
 
     for i,v in ipairs(sections) do
-        lines = insert_tasks(lines, project, v.id)
+        tasks = insert_tasks(tasks, project_id, v.id)
     end
 
-    table.insert(lines, colored("Add task", grey))
     table.insert(lines_id, 0)
 
-    ui:show_lines(lines)
+    table.insert(lines, first_line)
+    concat_tables(lines, tasks)
+    table.insert(lines, colored("Add task", grey))
+
+    local today_str = "today: "..get_today_tasks_num(tasks)
+
+    local overdue_str = ""
+    local overdue_num = get_overdue_tasks_num(tasks)
+
+    if (overdue_num > 0) then
+        overdue_str = ", "..red("overdue: "..get_overdue_tasks_num(tasks))
+    end
+
+    local folded_str = project_name.." ("..today_str..overdue_str..")"
+
+    ui:show_lines(lines, nil, folded_str)
+end
+
+function get_today_tasks_num(tasks)
+    return get_tasks_num_with_meta(tasks, today_meta)
+end
+
+function get_overdue_tasks_num(tasks)
+    return get_tasks_num_with_meta(tasks, overdue_meta)
+end
+
+function get_tasks_num_with_meta(tasks, meta)
+    local num = 0
+    for i,v in ipairs(tasks) do
+        if v:find(meta, 1, true) then
+            num = num + 1
+        end
+    end
+
+    return num
 end
 
 function get_project_name()
@@ -242,7 +283,8 @@ function open_task(id)
 
             ui:show_rich_editor{
                 text = v.content.."\n"..v.description,
-                due_date = get_time(v.due),
+                date = parse_iso8601_date(v.created),
+                due_date = parse_due_date(v.due),
                 colors = colors,
                 color = color,
                 new = false
@@ -428,6 +470,12 @@ end
 
 -- Utils
 
+function concat_tables(t1, t2)
+    for _,v in ipairs(t2) do
+        table.insert(t1, v)
+    end
+end
+
 function create_task_json(res, project)
     local priority = 1
     if res.color < 6 then
@@ -452,50 +500,71 @@ function rfc822_date(date)
     return os.date("%Y-%m-%dT%H:%M:00Z", date - system:get_tz_offset())
 end
 
--- HTML-colored string
 function colored(str, color)
     return "<font color=\""..color.."\">"..str.."</font>"
 end
 
--- HTML bold string
 function bold(str)
     return "<b>"..str.."</b>"
 end
 
+function red(str)
+    return colored(str, md_colors.red_500)
+end
+
 function task_text(v)
-    local due_date = get_time(v.due)
+    local due_date = parse_due_date(v.due)
     local dot = dot(due_date)
     local color = color_by_priority(v.priority)
 
-    return "%%mkd%%"..colored(dot.." "..v.content, color)
+    local meta = ""
+    if is_overdue(due_date) then
+        meta = overdue_meta
+    end
+
+    return "%%mkd%%"..colored(dot.." "..v.content, color)..meta
 end
 
 function task_date(v)
-    local due_date = get_time(v.due)
+    local due_date = parse_due_date(v.due)
 
     if due_date == nil then
         return ""
     end
 
     local date = ""
-    if os.date("%H:%M", due_date) == "00:00" then
-        date = os.date("%d %b", due_date)
+    local time = ""
+    local meta = ""
+
+    if os.date("%d %b") == os.date("%d %b", due_date) then
+        date = "today"
+        meta = today_meta
     else
-        date = os.date("%d %b, %H:%M", due_date)
+        date = os.date("%d %b", due_date)
     end
 
-    return colored(" - "..date, grey)
+    if os.date("%H:%M", due_date) == "00:00" then
+        time = ""
+    else
+        time = os.date("%H:%M", due_date)
+    end
+
+    return colored(" - "..date..", "..time, grey)..meta
 end
 
 -- Dot in the beggining of task
 function dot(due_date)
     local circle = "⬤ "
 
-    if due_date ~= nil and due_date < os.time() then
-        circle = "❗"
+    if is_overdue(due_date) then
+        circle = exclamation
     end
 
     return circle
+end
+
+function is_overdue(due_date)
+    return due_date ~= nil and due_date < os.time()
 end
 
 function color_by_priority(priority)
@@ -508,34 +577,29 @@ function color_by_priority(priority)
     return color
 end
 
-function get_time(due)
-    local due_date = nil
-    local due_time = nil
-    local offset = 0
-
+function parse_due_date(due)
     if due ~= nil then
         if due.datetime ~= nil then
-            due_time = due.datetime:split("T")
-            due_time = due_time[2]:split(":")
-            offset = system:get_tz_offset()
-        else
-            due_time = {0, 0}
+            return parse_iso8601_date(due.datetime) + system:get_tz_offset()
         end
-        due_date = due.date:split("-")
     end
 
-    if due_date ~= nil then
-        due_date = os.time{
-            year = due_date[1],
-            month = due_date[2],
-            day = due_date[3],
-            hour = due_time[1],
-            min = due_time[2],
-            sec = 0
-        } + offset
+    return nil
+end
+
+function parse_iso8601_date(json_date)
+    local pattern = "(%d+)%-(%d+)%-(%d+)%a(%d+)%:(%d+)%:([%d%.]+)([Z%+%-])(%d?%d?)%:?(%d?%d?)"
+    local year, month, day, hour, minute,
+        seconds, offsetsign, offsethour, offsetmin = json_date:match(pattern)
+    local timestamp = os.time{year = year, month = month,
+        day = day, hour = hour, min = minute, sec = seconds}
+    local offset = 0
+    if offsetsign ~= 'Z' then
+      offset = tonumber(offsethour) * 60 + tonumber(offsetmin)
+      if xoffset == "-" then offset = offset * -1 end
     end
 
-    return due_date
+    return timestamp + offset
 end
 
 -- Todoist API

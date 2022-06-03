@@ -11,6 +11,5 @@ Todoist widget for [AIO Launcher](https://aiolauncher.app).
 ### TODO
 
 * Creating and editing projects
-* Better implementation of folded mode
 * Correct error handling when updating task list
 * Using local cache for creating and editing tasks (so that you do not have to wait for change to be sent to server)
