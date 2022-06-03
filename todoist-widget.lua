@@ -15,7 +15,10 @@ local md_colors = require "md_colors"
 local exclamation = "❗"
 local today_meta = "<!--meta:today-->"
 local overdue_meta = "<!--meta:overdue-->"
-local decay_time = 6 * 60 * 60
+local hour = 60 * 60
+local day = 24 * hour
+local week = 7 * day
+local decay_time = 6 * hour
 local white = ui:get_colors().primary_text
 local grey = ui:get_colors().secondary_text
 local colors = {
@@ -274,29 +277,26 @@ function insert_subtasks(tab, id, lev)
     return tab
 end
 
-function open_task(id)
-    for i,v in ipairs(tasks) do
-        if v.id == id then
-            dialog_id = "task"
-            task = v.id
+function open_task(task_id)
+    local v = find_task(task_id)
+    if v == nil then return end
 
-            local color = 6
-            if v.priority > 1 then
-                color = 5 - v.priority
-            end
+    dialog_id = "task"
+    task = v.id
 
-            ui:show_rich_editor{
-                text = v.content.."\n"..v.description,
-                date = parse_iso8601_date(v.created),
-                due_date = parse_due_date(v.due),
-                colors = colors,
-                color = color,
-                new = false
-            }
-
-            return
-        end
+    local color = 6
+    if v.priority > 1 then
+        color = 5 - v.priority
     end
+
+    ui:show_rich_editor{
+        text = v.content.."\n"..v.description,
+        date = parse_iso8601_date(v.created),
+        due_date = parse_due_date(v.due),
+        colors = colors,
+        color = color,
+        new = false
+    }
 end
 
 function on_dialog_task(res)
@@ -319,7 +319,12 @@ function open_context_menu(id)
             task = v.id
             ui:show_context_menu{
                 { "check", "Done" },
-                { "trash", "Delete" }
+                { "trash", "Delete" },
+                { "share", "Share" },
+                { "clock", "Add hour" },
+                { "clock", "Add day" },
+                { "clock", "Add week" },
+                { "clock", "Add month" },
             }
             return
         end
@@ -356,6 +361,16 @@ function on_context_menu_click(idx)
             api_close_task(task)
         elseif idx == 2 then
             api_delete_task(task)
+        elseif idx == 3 then
+            share_task(task)
+        elseif idx == 4 then
+            increase_task_time(task, hour)
+        elseif idx == 5 then
+            increase_task_time(task, day)
+        elseif idx == 6 then
+            increase_task_time(task, week)
+        elseif idx == 7 then
+            increase_task_time_by_month(task)
         end
     elseif dialog_id == "section" then
         api_delete_section(task)
@@ -364,6 +379,41 @@ function on_context_menu_click(idx)
     else
         on_alarm()
     end
+end
+
+function increase_task_time(task_id, added_seconds)
+    local task = find_task(task_id)
+    if task == nil then return end
+
+    local date = parse_due_date(task.due)
+    if date == nil then return end
+
+    local body = {
+        due_datetime = to_iso8601_date(date + added_seconds)
+    }
+
+    api_edit_task(task_id, json.encode(body))
+end
+
+function increase_task_time_by_month(task_id)
+    local task = find_task(task_id)
+    if task == nil then return end
+
+    local date = parse_due_date(task.due)
+    if date == nil then return end
+
+    local body = {
+        due_datetime = to_iso8601_date(add_month(date))
+    }
+
+    api_edit_task(task_id, json.encode(body))
+end
+
+function share_task(task_id)
+    local task = find_task(task_id)
+    if task == nil then return end
+
+    system:share_text(task.content)
 end
 
 function on_dialog_action(res)
@@ -480,6 +530,16 @@ function concat_tables(t1, t2)
     end
 end
 
+function find_task(task_id)
+    for i,v in ipairs(tasks) do
+        if v.id == task_id then
+            return v
+        end
+    end
+
+    return nil
+end
+
 function create_task_json(res, project)
     local priority = 1
     if res.color < 6 then
@@ -489,7 +549,7 @@ function create_task_json(res, project)
     local body = {
         content = res.text,
         priority = priority,
-        due_datetime = rfc822_date(res.due_date)
+        due_datetime = to_iso8601_date(res.due_date)
     }
 
     if project ~= nil and project > 0 then
@@ -497,11 +557,6 @@ function create_task_json(res, project)
     end
 
     return json.encode(body)
-end
-
--- Int date to RFC822 date
-function rfc822_date(date)
-    return os.date("%Y-%m-%dT%H:%M:00Z", date - system:get_tz_offset())
 end
 
 function colored(str, color)
@@ -591,8 +646,12 @@ function parse_due_date(due)
     return nil
 end
 
+function to_iso8601_date(date)
+    return os.date("%Y-%m-%dT%H:%M:00Z", date - system:get_tz_offset())
+end
+
 function parse_iso8601_date(json_date)
-    local pattern = "(%d+)%-(%d+)%-(%d+)%a(%d+)%:(%d+)%:([%d%.]+)([Z%+%-])(%d?%d?)%:?(%d?%d?)"
+    local pattern = "(%d+)%-(%d+)%-(%d+)%a(%d+)%:(%d+)%:([%d%.]+)([Z%+%- ])(%d?%d?)%:?(%d?%d?)"
     local year, month, day, hour, minute,
         seconds, offsetsign, offsethour, offsetmin = json_date:match(pattern)
     local timestamp = os.time{year = year, month = month,
@@ -603,7 +662,30 @@ function parse_iso8601_date(json_date)
       if xoffset == "-" then offset = offset * -1 end
     end
 
-    return timestamp + offset
+    return timestamp + offset * 60
+end
+
+function add_month(date)
+    local date_tab = os.date("*t", date)
+
+    if date_tab.month == 12 then
+        date_tab.month = 1
+        date_tab.year = date_tab.year + 1
+    else
+        date_tab.month = date_tab.month + 1
+    end
+
+    local max_days = get_days_in_month(date_tab.month, date_tab.year)
+
+    if date_tab.day > max_days then
+        date_tab.day = max_days
+    end
+
+    return os.time(date_tab)
+end
+
+function get_days_in_month(mnth, yr)
+    return os.date('*t',os.time{year=yr,month=mnth+1,day=0})['day']
 end
 
 -- Todoist API
