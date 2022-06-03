@@ -177,7 +177,11 @@ function redraw()
     concat_tables(lines, tasks)
     table.insert(lines, colored("Add task", grey))
 
-    local today_str = "today: "..get_today_tasks_num(tasks)
+    local today_str = "empty"
+
+    if #tasks > 0 then
+        today_str = "today: "..get_today_tasks_num(tasks)
+    end
 
     local overdue_str = ""
     local overdue_num = get_overdue_tasks_num(tasks)
