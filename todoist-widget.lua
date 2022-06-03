@@ -3,12 +3,12 @@
 -- description = "Integration with Todoist"
 -- data_source = "https://todoist.com/app/"
 -- author = "Timo Peters & Andrey Gavrilov"
--- aio_version = "4.4.1"
--- version = "2.1
--- arguments_default = "0 0"
+-- aio_version = "4.4.1-beta11"
+-- version = "2.2
 
 -- modules
 local json = require "json"
+local fmt = require "fmt"
 local md_colors = require "md_colors"
 
 -- constants
@@ -19,8 +19,6 @@ local hour = 60 * 60
 local day = 24 * hour
 local week = 7 * day
 local decay_time = 6 * hour
-local white = ui:get_colors().primary_text
-local grey = ui:get_colors().secondary_text
 local colors = {
     md_colors.red_500,
     md_colors.orange_500,
@@ -36,14 +34,14 @@ local lines_id = {}
 local task = 0
 
 function on_alarm()
-    local args = settings:get()
+    -- settings format: { "token", project_id }
 
-    if not settings:get() then
-        settings:set({0, 0})
+    if next(settings:get()) == nil or settings:get()[1] == "" then
+        settings:set({"", 0})
     end
 
     local token = settings:get()[1]
-    if tonumber(token) == 0 then
+    if token == "" then
         ui:show_text("Tap to enter your API token!")
         return
     end
@@ -69,6 +67,11 @@ function on_network_result_tasks(res, err)
 end
 
 function on_resume()
+    if settings:get()[1] == "" then
+        on_alarm()
+        return
+    end
+
     if not files:read("todoist_projects") then
         files:write("todoist_projects", json.encode({}))
     end
@@ -87,7 +90,7 @@ function on_resume()
 end
 
 function on_click(idx)
-    if tonumber(settings:get()[1]) == 0 then
+    if settings:get()[1] == "" then
         dialog_id = "settings"
         ui:show_edit_dialog("Enter your API token")
     elseif idx == 1 then
@@ -155,9 +158,9 @@ function redraw()
     local project_id = tonumber(settings:get()[2])
 
     if project_id == 0 then
-        project_name = bold("All projects")
+        project_name = fmt.bold("All projects")
     else
-        project_name = bold(get_project_name(project))
+        project_name = fmt.bold(get_project_name(project))
     end
 
     if os.time() - files:read("todoist_time") > decay_time then
@@ -178,7 +181,7 @@ function redraw()
 
     table.insert(lines, first_line)
     concat_tables(lines, tasks)
-    table.insert(lines, colored("Add task", grey))
+    table.insert(lines, fmt.secondary("Add task"))
 
     local today_str = "empty"
 
@@ -190,7 +193,7 @@ function redraw()
     local overdue_num = get_overdue_tasks_num(tasks)
 
     if (overdue_num > 0) then
-        overdue_str = ", "..red("overdue: "..get_overdue_tasks_num(tasks))
+        overdue_str = ", "..fmt.red("overdue: "..get_overdue_tasks_num(tasks))
     end
 
     local folded_str = project_name.." ("..today_str..overdue_str..")"
@@ -559,18 +562,6 @@ function create_task_json(res, project)
     return json.encode(body)
 end
 
-function colored(str, color)
-    return "<font color=\""..color.."\">"..str.."</font>"
-end
-
-function bold(str)
-    return "<b>"..str.."</b>"
-end
-
-function red(str)
-    return colored(str, md_colors.red_500)
-end
-
 function task_text(v)
     local due_date = parse_due_date(v.due)
     local dot = dot(due_date)
@@ -581,7 +572,7 @@ function task_text(v)
         meta = overdue_meta
     end
 
-    return "%%mkd%%"..colored(dot.." "..v.content, color)..meta
+    return "%%mkd%%"..fmt.colored(dot.." "..v.content, color)..meta
 end
 
 function task_date(v)
@@ -608,7 +599,7 @@ function task_date(v)
         time = os.date("%H:%M", due_date)
     end
 
-    return colored(" - "..date..", "..time, grey)..meta
+    return fmt.secondary(" - "..date..", "..time)..meta
 end
 
 -- Dot in the beggining of task
@@ -627,7 +618,7 @@ function is_overdue(due_date)
 end
 
 function color_by_priority(priority)
-    local color = white
+    local color = ui:get_colors().primary_text
 
     if priority > 1 then
         color = colors[5 - priority]
