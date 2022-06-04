@@ -4,7 +4,7 @@
 -- data_source = "https://todoist.com/app/"
 -- author = "Timo Peters & Andrey Gavrilov"
 -- aio_version = "4.4.1-beta11"
--- version = "2.2
+-- version = "2.3
 
 -- modules
 local json = require "json"
@@ -311,6 +311,23 @@ function on_dialog_task(res)
     end
 end
 
+function create_task()
+    dialog_id = "create"
+
+    ui:show_rich_editor{
+        due_date = 0,
+        colors = colors,
+        color = 6
+    }
+end
+
+function on_dialog_create(res)
+    local project = tonumber(settings:get()[2])
+    local body = create_task_json(res, project)
+
+    api_create_task(body)
+end
+
 function on_long_click(idx)
     open_context_menu(lines_id[idx])
 end
@@ -328,7 +345,7 @@ function open_context_menu(id)
             }
 
             if v.due ~= nil then
-                if v.due.dattime ~= nil then
+                if v.due.datetime ~= nil then
                     concat_tables(menu, {
                         { "clock", "Add hour" },
                         { "clock", "Add day" },
@@ -390,7 +407,7 @@ function on_context_menu_click(idx)
         elseif idx == 6 then
             increase_task_time(task, week)
         elseif idx == 7 then
-            increase_task_time_by_month(task)
+            increase_task_time(task, "month")
         end
     elseif dialog_id == "section" then
         api_delete_section(task)
@@ -401,25 +418,18 @@ function on_context_menu_click(idx)
     end
 end
 
-function increase_task_time(task_id, added_seconds)
+function increase_task_time(task_id, added)
     local task = find_task(task_id)
-    if task == nil then return end
-
     local date = parse_due_date(task.due)
-    if date == nil then return end
+    local new_date = 0
 
-    local body = edit_task_time_json(task)
-    api_edit_task(task_id, body)
-end
+    if added == "month" then
+        new_date = add_month(date)
+    else
+        new_date = date + added
+    end
 
-function increase_task_time_by_month(task_id)
-    local task = find_task(task_id)
-    if task == nil then return end
-
-    local date = parse_due_date(task.due)
-    if date == nil then return end
-
-    local body = edit_task_time_json(task)
+    local body = edit_task_time_json(task, new_date)
     api_edit_task(task_id, body)
 end
 
@@ -488,23 +498,6 @@ function on_network_result_delete_pr(res, err)
     ui:show_toast("There was an error deleting the project!")
 end
 
-function create_task()
-    dialog_id = "create"
-
-    ui:show_rich_editor{
-        due_date = 0,
-        colors = colors,
-        color = 6
-    }
-end
-
-function on_dialog_create(res)
-    local project = tonumber(settings:get()[2])
-    local body = create_task_json(res, project)
-
-    api_create_task(body)
-end
-
 function on_network_result_create(res, err)
     if err == 200 then
         ui:show_toast("Task created!")
@@ -554,16 +547,16 @@ function find_task(task_id)
     return nil
 end
 
-function edit_task_time_json(task)
+function edit_task_time_json(task, date)
     local body = {}
 
     if task.due.datetime ~= nil then
         body = {
-            due_datetime = to_iso8601_datetime(add_month(date))
+            due_datetime = to_iso8601_datetime(date)
         }
     else
         body = {
-            due_date = to_iso8601_date(add_month(date))
+            due_date = to_iso8601_date(date)
         }
     end
 
