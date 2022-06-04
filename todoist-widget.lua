@@ -157,12 +157,8 @@ function redraw()
     lines_id = {}
 
     local project_id = tonumber(settings:get()[2])
-
-    if project_id == 0 then
-        project_name = fmt.bold("All projects")
-    else
-        project_name = fmt.bold(get_project_name(project))
-    end
+    local project_name = fmt.bold(get_project_name(project_id))
+    --project_name = fmt.colored(project_name, get_project_color(project_id))
 
     if os.time() - files:read("todoist_time") > decay_time then
         first_line = project_name.." (outdated)"
@@ -221,14 +217,24 @@ function get_tasks_num_with_meta(tasks, meta)
     return num
 end
 
-function get_project_name()
-    local project = tonumber(settings:get()[2])
-    for i,v in ipairs(projects) do
-        if project == v.id then
-            return v.name
-        end
+function get_project_name(project_id)
+    local project = get_project(project_id)
+
+    if project ~= nil then
+        return project.name
+    else
+        return "All projects"
     end
-    return "All projects"
+end
+
+function get_project_color(project_id)
+    local project = get_project(project_id)
+
+    if project ~= nil then
+        return todoist_colors[project.color]
+    else
+        return fmt.primary()
+    end
 end
 
 function get_section_name(id)
@@ -552,6 +558,15 @@ function find_task(task_id)
     return nil
 end
 
+function get_project(project_id)
+    for i,v in ipairs(projects) do
+        if project_id == v.id then
+            return v
+        end
+    end
+    return nil
+end
+
 function edit_task_time_json(task, date)
     local body = {}
 
@@ -769,3 +784,27 @@ function api_delete_project(task_id)
     http:delete(base_uri.."projects/"..task_id, "delete_pr")
 end
 
+-- Todoist colors
+
+todoist_colors = {
+    [30] = "#b8256f",
+    [31] = "#db4035",
+    [32] = "#ff9933",
+    [33] = "#fad000",
+    [34] = "#afb83b",
+    [35] = "#7ecc49",
+    [36] = "#299438",
+    [37] = "#6accbc",
+    [38] = "#158fad",
+    [39] = "#14aaf5",
+    [40] = "#96c3eb",
+    [41] = "#4073ff",
+    [42] = "#884dff",
+    [43] = "#af38eb",
+    [44] = "#eb96eb",
+    [45] = "#e05194",
+    [46] = "#ff8d85",
+    [47] = "#808080",
+    [48] = "#b8b8b8",
+    [49] = "#ccac93",
+}
