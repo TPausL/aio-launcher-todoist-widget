@@ -320,15 +320,23 @@ function open_context_menu(id)
         if v.id == id then
             dialog_id = "task"
             task = v.id
-            ui:show_context_menu{
+
+            local menu = {
                 { "check", "Done" },
                 { "trash", "Delete" },
                 { "share", "Share" },
-                { "clock", "Add hour" },
-                { "clock", "Add day" },
-                { "clock", "Add week" },
-                { "clock", "Add month" },
             }
+
+            if v.due ~= nil and v.due.datetime ~= nil then
+                concat_tables(menu, {
+                    { "clock", "Add hour" },
+                    { "clock", "Add day" },
+                    { "clock", "Add week" },
+                    { "clock", "Add month" },
+                })
+            end
+
+            ui:show_context_menu(menu)
             return
         end
     end
@@ -544,16 +552,18 @@ function find_task(task_id)
 end
 
 function create_task_json(res, project)
-    local priority = 1
-    if res.color < 6 then
-        priority = 5 - res.color
-    end
-
     local body = {
         content = res.text,
-        priority = priority,
-        due_datetime = to_iso8601_date(res.due_date)
+        priority = 1,
     }
+
+    if res.color < 6 then
+        body.priority = 5 - res.color
+    end
+
+    if res.due_date ~= 0 then
+        body.due_datetime = to_iso8601_date(res.due_date)
+    end
 
     if project ~= nil and project > 0 then
         body.project_id = project
