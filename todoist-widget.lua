@@ -12,6 +12,7 @@ local fmt = require "fmt"
 local md_colors = require "md_colors"
 
 -- constants
+local dot = "⬤ "
 local exclamation = "❗"
 local today_meta = "<!--meta:today-->"
 local overdue_meta = "<!--meta:overdue-->"
@@ -590,15 +591,9 @@ end
 
 function task_text(v)
     local due_date = parse_due_date(v.due)
-    local dot = dot(due_date)
     local color = color_by_priority(v.priority)
 
-    local meta = ""
-    if is_overdue(due_date) then
-        meta = overdue_meta
-    end
-
-    return "%%mkd%%"..fmt.colored(dot.." "..v.content, color)..meta
+    return "%%mkd%%"..fmt.colored(dot.." "..v.content, color)
 end
 
 function task_date(v)
@@ -611,32 +606,37 @@ function task_date(v)
     local date = ""
     local time = ""
     local meta = ""
+    local str_end = ""
 
-    if os.date("%d %b") == os.date("%d %b", due_date) then
+    if is_today(due_date) then
         date = "today"
         meta = today_meta
     else
         date = os.date("%d %b", due_date)
     end
 
-    if os.date("%H:%M", due_date) == "00:00" then
+    if is_all_day(due_date) then
         time = ""
     else
         time = ", "..os.date("%H:%M", due_date)
     end
 
-    return fmt.secondary(" - "..date..time)..meta
-end
-
--- Dot in the beggining of task
-function dot(due_date)
-    local circle = "⬤ "
-
     if is_overdue(due_date) then
-        circle = exclamation
+        meta = meta..overdue_meta
+        date = fmt.red(date)
+        time = fmt.red(time)
+        str_end = exclamation
     end
 
-    return circle
+    return fmt.secondary(" - "..date..time)..meta..str_end
+end
+
+function is_today(due_date)
+    return os.date("%d %b") == os.date("%d %b", due_date)
+end
+
+function is_all_day(due_date)
+    return os.date("%H:%M", due_date) == "00:00"
 end
 
 function is_overdue(due_date)
