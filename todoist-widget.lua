@@ -242,6 +242,10 @@ end
 function insert_tasks(tab, pr, sec)
     local is_sec = true
 
+    table.sort(tasks, function (a,b)
+        return a.order < b.order
+    end)
+
     for i,v in ipairs(tasks) do
         if ((pr == v.project_id) or (pr == 0)) and (sec == v.section_id) and (not v.parent) and not v.completed then
             if is_sec and sec ~= 0 then
