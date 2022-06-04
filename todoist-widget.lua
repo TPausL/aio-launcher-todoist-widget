@@ -294,7 +294,7 @@ function open_task(task_id)
 
     ui:show_rich_editor{
         text = v.content.."\n"..v.description,
-        date = parse_iso8601_date(v.created),
+        date = parse_iso8601_datetime(v.created),
         due_date = parse_due_date(v.due),
         colors = colors,
         color = color,
@@ -327,13 +327,22 @@ function open_context_menu(id)
                 { "share", "Share" },
             }
 
-            if v.due ~= nil and v.due.datetime ~= nil then
-                concat_tables(menu, {
-                    { "clock", "Add hour" },
-                    { "clock", "Add day" },
-                    { "clock", "Add week" },
-                    { "clock", "Add month" },
-                })
+            if v.due ~= nil then
+                if v.due.dattime ~= nil then
+                    concat_tables(menu, {
+                        { "clock", "Add hour" },
+                        { "clock", "Add day" },
+                        { "clock", "Add week" },
+                        { "clock", "Add month" },
+                    })
+                elseif v.due.date ~= nil then
+                    concat_tables(menu, {
+                        { "ban", "Add hour" },
+                        { "clock", "Add day" },
+                        { "clock", "Add week" },
+                        { "clock", "Add month" },
+                    })
+                end
             end
 
             ui:show_context_menu(menu)
@@ -399,11 +408,8 @@ function increase_task_time(task_id, added_seconds)
     local date = parse_due_date(task.due)
     if date == nil then return end
 
-    local body = {
-        due_datetime = to_iso8601_date(date + added_seconds)
-    }
-
-    api_edit_task(task_id, json.encode(body))
+    local body = edit_task_time_json(task)
+    api_edit_task(task_id, body)
 end
 
 function increase_task_time_by_month(task_id)
@@ -413,11 +419,8 @@ function increase_task_time_by_month(task_id)
     local date = parse_due_date(task.due)
     if date == nil then return end
 
-    local body = {
-        due_datetime = to_iso8601_date(add_month(date))
-    }
-
-    api_edit_task(task_id, json.encode(body))
+    local body = edit_task_time_json(task)
+    api_edit_task(task_id, body)
 end
 
 function share_task(task_id)
@@ -551,6 +554,22 @@ function find_task(task_id)
     return nil
 end
 
+function edit_task_time_json(task)
+    local body = {}
+
+    if task.due.datetime ~= nil then
+        body = {
+            due_datetime = to_iso8601_datetime(add_month(date))
+        }
+    else
+        body = {
+            due_date = to_iso8601_date(add_month(date))
+        }
+    end
+
+    return json.encode(body)
+end
+
 function create_task_json(res, project)
     local body = {
         content = res.text,
@@ -562,7 +581,11 @@ function create_task_json(res, project)
     end
 
     if res.due_date ~= 0 then
-        body.due_datetime = to_iso8601_date(res.due_date)
+        if os.date("%H:%M", res.due_date) == "00:00" then
+            body.due_date = to_iso8601_date(res.due_date)
+        else
+            body.due_datetime = to_iso8601_datetime(res.due_date)
+        end
     end
 
     if project ~= nil and project > 0 then
@@ -606,10 +629,10 @@ function task_date(v)
     if os.date("%H:%M", due_date) == "00:00" then
         time = ""
     else
-        time = os.date("%H:%M", due_date)
+        time = ", "..os.date("%H:%M", due_date)
     end
 
-    return fmt.secondary(" - "..date..", "..time)..meta
+    return fmt.secondary(" - "..date..time)..meta
 end
 
 -- Dot in the beggining of task
@@ -644,18 +667,24 @@ function parse_due_date(due)
             if due.datetime:find('Z') then
                 offset = system:get_tz_offset()
             end
-            return parse_iso8601_date(due.datetime) + offset
+            return parse_iso8601_datetime(due.datetime) + offset
+        elseif due.date ~= nil then
+            return parse_iso8601_date(due.date)
         end
     end
 
     return nil
 end
 
-function to_iso8601_date(date)
+function to_iso8601_datetime(date)
     return os.date("%Y-%m-%dT%H:%M:00Z", date - system:get_tz_offset())
 end
 
-function parse_iso8601_date(json_date)
+function to_iso8601_date(date)
+    return os.date("%Y-%m-%d", date)
+end
+
+function parse_iso8601_datetime(json_date)
     local pattern = "(%d+)%-(%d+)%-(%d+)%a(%d+)%:(%d+)%:([%d%.]+)([Z%+%-]?)(%d?%d?)%:?(%d?%d?)"
     local year, month, day, hour, minute,
         seconds, offsetsign, offsethour, offsetmin = json_date:match(pattern)
@@ -668,6 +697,12 @@ function parse_iso8601_date(json_date)
     end
 
     return timestamp + offset * 60
+end
+
+function parse_iso8601_date(json_date)
+    local pattern = "(%d+)%-(%d+)%-(%d+)"
+    local year, month, day, hour = json_date:match(pattern)
+    return os.time{year = year, month = month, day = day, hour = 0, min = 0, sec = 0}
 end
 
 function add_month(date)
