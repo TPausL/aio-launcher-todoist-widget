@@ -252,7 +252,7 @@ function insert_tasks(tab, pr, sec)
 
             local line = task_text(v)..task_date(v)
 
-            table.insert(tab, line)
+            table.insert(tab, "%%mkd%%"..line)
             table.insert(lines_id, v.id)
 
             tab = insert_subtasks(tab, v.id, 1)
@@ -266,13 +266,13 @@ function insert_subtasks(tab, id, lev)
 
     for i,v in ipairs(tasks) do
         if (v.parent_id == id) and not v.completed then
-            local line = task_text(v)..task_date()
+            local line = task_text(v)..task_date(v)
 
             for i = 1, lev do
-                line = "&nbsp;&nbsp;&nbsp;"..line
+                line = "&nbsp;&nbsp;&nbsp;&nbsp;"..line
             end
 
-            table.insert(tab, line)
+            table.insert(tab, "%%mkd%%"..line)
             table.insert(lines_id, v.id)
 
             tab = insert_subtasks(tab, v.id, lev + 1)
@@ -593,7 +593,7 @@ function task_text(v)
     local due_date = parse_due_date(v.due)
     local color = color_by_priority(v.priority)
 
-    return "%%mkd%%"..fmt.colored(dot.." "..v.content, color)
+    return fmt.colored(dot.." "..v.content, color)
 end
 
 function task_date(v)
