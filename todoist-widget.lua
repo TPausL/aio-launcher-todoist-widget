@@ -304,7 +304,7 @@ function open_task(task_id)
     end
 
     ui:show_rich_editor{
-        text = v.content
+        text = v.content,
         date = parse_iso8601_datetime(v.created),
         due_date = parse_due_date(v.due),
         colors = colors,
