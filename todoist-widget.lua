@@ -292,21 +292,26 @@ function insert_subtasks(tab, id, lev)
 end
 
 function open_task(task_id)
-    local v = find_task(task_id)
-    if v == nil then return end
+    local t = find_task(task_id)
+    if t == nil then return end
 
     dialog_id = "task"
-    task = v.id
+    task = t.id
 
     local color = 6
-    if v.priority > 1 then
-        color = 5 - v.priority
+    if t.priority > 1 then
+        color = 5 - t.priority
+    end
+
+    local text = t.content
+    if t.description ~= nil then
+        text = t.content.."\n"..t.description
     end
 
     ui:show_rich_editor{
-        text = v.content,
-        date = parse_iso8601_datetime(v.created),
-        due_date = parse_due_date(v.due),
+        text = text,
+        date = parse_iso8601_datetime(t.created),
+        due_date = parse_due_date(t.due),
         colors = colors,
         color = color,
         new = false
@@ -584,8 +589,13 @@ function edit_task_time_json(task, date)
 end
 
 function create_task_json(res, project)
+    local text_tab = res.text:split("\n")
+    local content = text_tab[1]
+    local desc = table.concat(text_tab, "\n", 2)
+
     local body = {
-        content = res.text,
+        content = content,
+        description = desc,
         priority = 1,
     }
 
