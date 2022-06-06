@@ -660,16 +660,22 @@ function task_date(v)
     return fmt.secondary(" - "..date..time)..meta..str_end
 end
 
-function is_today(due_date)
-    return os.date("%d %b") == os.date("%d %b", due_date)
+function is_today(date)
+    return os.date("%d %b") == os.date("%d %b", date)
 end
 
-function is_all_day(due_date)
-    return os.date("%H:%M", due_date) == "00:00"
+function is_all_day(date)
+    return os.date("%H:%M", date) == "00:00"
 end
 
 function is_overdue(due_date)
-    return due_date ~= nil and due_date < os.time()
+    if due_date == nil then return end
+
+    if is_all_day(due_date) then
+        return due_date + day < os.time()
+    else
+        return due_date < os.time()
+    end
 end
 
 function color_by_priority(priority)
