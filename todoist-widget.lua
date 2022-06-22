@@ -22,6 +22,7 @@ local project_names = {}
 local api_projects = {}
 local get_counter = 0
 local selected_task = nil
+local line_count = 0
 
 function on_resume()
 
@@ -50,11 +51,19 @@ function setup()
 end
 
 function main()
-    if project_id == "all" then
+    if project_id == "today" then
         project_id = ""
+        http:get(base_uri .. "tasks?filter=(today | overdue)", "tasks")
+
+    elseif project_id == "all" then
+            project_id = ""
+            http:get(base_uri .. "tasks", "tasks")
+
+    else
+        http:get(base_uri .. "sections/?project_id=" .. project_id, "sections")
+
     end
 
-    http:get(base_uri .. "sections/?project_id=" .. project_id, "sections")
 end
 
 function on_network_result_sections(string, code)
@@ -127,7 +136,7 @@ function render_lines()
 
         --lines[i] = v["section_id"]
         local line =  tab .. "●" .. "<span style=\"background-color: " .. background .. "\">" .. v["content"] .. "</span>" .. due
-        if v["section_id"] > 0 then
+        if v["section_id"] > 0 and not project_id == "" then
             table.insert(section_lines[sections[v["section_id"]]["order"]],"%%mkd%%" .. "&nbsp;&nbsp;" .. line)
         else 
             lines[i] = "%%mkd%%" .. line
@@ -147,13 +156,17 @@ function render_lines()
     else
         title = project_name
     end
-    ui:show_lines({ "<b>" .. title .. "</b>", table.unpack(lines) })
+
+    table.insert(lines,  "<i>" .. "Add task" .. "</i>" )
+    --ui:show_text(lines[1])
+    ui:show_lines({ "<b>" .. title .. "</b>", table.unpack(lines)})
+    line_count = #{ "<b>" .. title .. "</b>", table.unpack(lines)};
 end
 
 function on_long_click(idx)
     if idx == 1 then return end
     selected_task = idx - 1
-    ui:show_context_menu({ { "check", "Done" }, { "trash", "Delete" } })
+    ui:show_context_menu({ { "check", "Done" }, { "trash", "Delete" }, {"pen", "Edit"} })
 end
 
 function on_context_menu_click(idx)
@@ -162,7 +175,9 @@ function on_context_menu_click(idx)
     end
     if idx == 2 then
         http:delete(base_uri .. "tasks/" .. tasks[selected_task]["id"], "task_done")
-
+    end
+    if idx == 3 then 
+        system:open_browser("todoist://task?id=" .. tasks[idx - 1]["id"])
     end
 end
 
@@ -177,18 +192,19 @@ end
 function on_click(idx)
     if idx == 1 then
         http:get(base_uri .. "projects", "projects")
+    elseif idx == line_count then
+        system:open_browser("todoist://addtask")
     else
-        ui:show_toast("TODO: need to show editor")
     end
 end
 
 function on_network_result_projects(string, code)
     api_projects = json.decode(string)
 
-    project_names = { "All Projects" }
+    project_names = { "All Projects", "Today" }
 
     for i, v in ipairs(api_projects) do
-        project_names[i + 1] = v["name"]
+        project_names[i + 2] = v["name"]
     end
 
     ui:show_radio_dialog("Select Project", project_names)
@@ -199,9 +215,11 @@ function on_dialog_action(idx)
         return
     end
     if idx == 1 then
-        project_id = ""
+        project_id = "all"
+    elseif idx == 2 then
+        project_id = "today"
     else
-        project_id = api_projects[idx - 1]["id"]
+        project_id = api_projects[idx - 2]["id"]
     end
     project_name = project_names[idx]
 
