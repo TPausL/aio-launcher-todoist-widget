@@ -310,7 +310,7 @@ function open_task(task_id)
 
     ui:show_rich_editor{
         text = text,
-        date = parse_iso8601_datetime(t.created),
+        date = iso8601_datetime_to_local(t.created),
         due_date = parse_due_date(t.due),
         colors = colors,
         color = color,
@@ -691,11 +691,7 @@ end
 function parse_due_date(due)
     if due ~= nil then
         if due.datetime ~= nil then
-            local offset = 0
-            if due.datetime:find('Z') then
-                offset = system:get_tz_offset()
-            end
-            return parse_iso8601_datetime(due.datetime) + offset
+            return iso8601_datetime_to_local(due.datetime)
         elseif due.date ~= nil then
             return parse_iso8601_date(due.date)
         end
@@ -710,6 +706,14 @@ end
 
 function to_iso8601_date(date)
     return os.date("%Y-%m-%d", date)
+end
+
+function iso8601_datetime_to_local(datetime)
+    local offset = 0
+    if datetime:find('Z') then
+        offset = system:get_tz_offset()
+    end
+    return parse_iso8601_datetime(datetime) + offset
 end
 
 function parse_iso8601_datetime(json_date)
