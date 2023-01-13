@@ -762,7 +762,7 @@ end
 
 -- Todoist API
 
-local base_uri = "https://api.todoist.com/rest/v1/"
+local base_uri = "https://api.todoist.com/rest/v2/"
 
 function api_set_token(token)
     http:set_headers{ "Authorization: Bearer "..token }
